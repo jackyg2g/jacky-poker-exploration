@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Holdem Exploration Platform</title>
+  <title>Platform Brief - Proprietary Exploit - by Jacky</title>
   <meta
     name="description"
-    content="A technical architecture brief for the Holdem Exploration platform: parsing, GTO baseline generation, population modeling, proprietary strategy training, serving, and product delivery."
+    content="Platform Brief - Proprietary Exploit - by Jacky. A technical architecture brief centered on three strategy layers: GTO baseline, population tendencies, and proprietary exploit strategy."
   />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -767,12 +767,13 @@
         <span class="brand-mark">P</span>
         <div class="brand-copy">
           <div class="brand-eyebrow">Platform Brief</div>
-          <div class="brand-title">Holdem Exploration</div>
+          <div class="brand-title">Proprietary Exploit</div>
           <div class="brand-byline">by Jacky</div>
         </div>
       </div>
       <nav class="nav-links">
         <a href="#overview">Overview</a>
+        <a href="#layers">Strategy Layers</a>
         <a href="#architecture">Architecture</a>
         <a href="#pipeline">Training</a>
         <a href="#api">API</a>
@@ -789,24 +790,26 @@
       <div class="hero-grid">
         <div class="reveal">
           <span class="eyebrow">Technical Architecture Brief</span>
-          <h1>Three-layer poker intelligence, <em>served as a product platform.</em></h1>
+          <h1>Platform brief for a <em>proprietary exploit</em> system built on three strategy layers.</h1>
           <p class="hero-copy">
-            Holdem Exploration combines hand-history parsing, GTO baseline generation,
-            population modeling, exploitative proprietary strategy training, versioned
-            deployment, API serving, and product delivery into a single architecture.
-            The result is a research-to-product system designed for repeatable strategy
-            development rather than one-off analysis.
+            This platform is centered on a single modeling thesis: strong exploit strategy
+            should not be generated as an isolated black box. It should be built by aligning
+            three layers of intelligence: a GTO baseline, observed population tendencies, and
+            a proprietary exploit strategy that intentionally departs from baseline where the
+            field is predictably imbalanced. The surrounding system exists to ingest data,
+            train those layers, version the outputs, and serve them as a usable product.
           </p>
         </div>
 
         <aside class="hero-panel reveal">
-          <div class="panel-label">Current Operating Model</div>
-          <h2>Artifact-backed serving with a clear path to scale.</h2>
+          <div class="panel-label">Core Thesis</div>
+          <h2>Three strategy layers drive the entire platform.</h2>
           <p>
-            The production path today is built around versioned strategy artifacts,
-            in-memory serving, and a lightweight product interface. The surrounding
-            infrastructure already anticipates the next layers: persistent storage,
-            cache-backed distribution, and deeper solver integration.
+            Everything in the repository maps back to a three-layer strategy system:
+            GTO baseline for equilibrium reference, population tendencies for observed
+            field behavior, and proprietary exploit strategy for monetizable directional
+            adjustment. The parser, training pipeline, API, and product interface all
+            exist to produce, compare, and operationalize these three layers.
           </p>
           <div class="hero-stats">
             <div class="mini-stat">
@@ -830,6 +833,89 @@
       </div>
     </section>
 
+    <section class="section shell" id="layers">
+      <div class="section-head">
+        <h2 class="reveal">Three strategy layers</h2>
+        <p class="reveal">
+          The central idea in the platform is the disciplined separation of strategy into
+          three interpretable layers. This is what makes the system explainable, versionable,
+          and commercially meaningful.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="prose-card reveal">
+          <div class="kicker">Layer 01</div>
+          <h3>GTO baseline</h3>
+          <p>
+            The GTO layer is the equilibrium reference model. It provides the anchor against
+            which all observed field behavior is measured. Without this layer, the system would
+            know what the population does, but not whether that behavior is strategically weak
+            or strong.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Purpose:</strong> define the reference policy for each supported spot.</li>
+            <li><strong>Source:</strong> solver artifacts, curated references, and batch-generated baseline outputs.</li>
+            <li><strong>Role:</strong> the baseline that keeps exploit adaptation grounded instead of arbitrary.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Layer 02</div>
+          <h3>Population tendencies</h3>
+          <p>
+            The population layer is the empirical observation engine. It converts raw hand-history
+            data into spot-level action frequencies, sample sizes, and confidence signals. This is
+            the layer that tells the system how the field actually behaves rather than how theory
+            says it should behave.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Purpose:</strong> map real-world tendencies by spot.</li>
+            <li><strong>Source:</strong> parsed hand histories aggregated into canonical frequency distributions.</li>
+            <li><strong>Role:</strong> the evidence base for exploit opportunity discovery.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Layer 03</div>
+          <h3>Proprietary exploit strategy</h3>
+          <p>
+            The proprietary layer is the actual productized edge. It is generated by measuring
+            where the population departs from GTO, filtering those deviations through significance
+            and confidence rules, and then applying bounded exploit adjustments to produce a
+            release-ready strategy package.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Purpose:</strong> turn field miscalibration into controlled strategic edge.</li>
+            <li><strong>Source:</strong> deviation analysis plus adjustment and validation logic.</li>
+            <li><strong>Role:</strong> the monetizable layer that differentiates the platform from a baseline viewer.</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="band reveal" style="margin-top: 18px;">
+        <div class="band-grid">
+          <div>
+            <div class="panel-label">Why this matters</div>
+            <h2>The system is valuable because it preserves the relationship between theory, evidence, and edge.</h2>
+            <p>
+              Many systems can show a baseline or summarize observed behavior. This platform is
+              stronger because it formalizes the transformation from baseline, to population signal,
+              to proprietary exploit package. That relationship is what makes the stack coherent.
+            </p>
+          </div>
+          <div>
+            <ul>
+              <li>GTO baseline answers: what is theoretically sound?</li>
+              <li>Population tendencies answer: what does the field actually do?</li>
+              <li>Proprietary exploit answers: how should strategy shift to capitalize on that gap?</li>
+              <li>The rest of the platform exists to compute, validate, release, and serve this progression.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="section shell">
       <div class="grid-4">
         <article class="card reveal">
@@ -837,16 +923,16 @@
           <div class="metric">Unified</div>
           <p>
             A single index model, `spot_key`, links training outputs, API lookups,
-            product surfaces, and strategy version comparisons across the entire stack.
+            product surfaces, and three-layer strategy comparisons across the entire stack.
           </p>
         </article>
         <article class="card reveal">
           <div class="kicker">Modeling Approach</div>
           <div class="metric">Layered</div>
           <p>
-            The platform is intentionally structured as GTO baseline, observed
-            population behavior, and proprietary exploit adaptation rather than
-            a monolithic black-box predictor.
+            The platform is intentionally structured around three strategy layers:
+            GTO baseline, population tendencies, and proprietary exploit strategy,
+            rather than a monolithic black-box predictor.
           </p>
         </article>
         <article class="card reveal">
@@ -1910,7 +1996,7 @@ cli/         - operator interface</div>
           <div class="kicker">Current architecture reality</div>
           <h3>A broad platform foundation already exists, even though the online path remains intentionally narrow.</h3>
           <p>
-            The clearest way to understand the current maturity of Holdem Exploration is this: it is not a toy
+            The clearest way to understand the current maturity of this proprietary exploit platform is this: it is not a toy
             frontend wrapped around a few hardcoded demos, and it is not yet a fully industrialized strategy cloud.
             It already has real ingestion, real population modeling, real deviation analysis, real strategy versioning,
             and real serving interfaces. At the same time, it still makes deliberate simplifying choices in the
@@ -1995,7 +2081,7 @@ cli/         - operator interface</div>
 
   <footer class="footer shell">
     <div class="footer-card">
-      Holdem Exploration architecture brief. Static delivery page generated from the platform’s
+      Platform Brief - Proprietary Exploit - by Jacky. Static delivery page generated from the platform’s
       technical system documentation and architecture diagrams. Prepared by Jacky.
     </div>
   </footer>
