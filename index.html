@@ -138,6 +138,13 @@
       letter-spacing: -0.03em;
     }
 
+    .brand-byline {
+      margin-top: 3px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      letter-spacing: -0.01em;
+    }
+
     .nav-links {
       display: flex;
       flex-wrap: wrap;
@@ -531,6 +538,28 @@
       background: rgba(255, 255, 255, 0.18);
     }
 
+    .note-list {
+      display: grid;
+      gap: 12px;
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .note-list li {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(31, 99, 216, 0.06);
+      border: 1px solid rgba(31, 99, 216, 0.08);
+      color: var(--ink);
+      font-size: var(--body);
+      line-height: 1.7;
+    }
+
+    .note-list strong {
+      color: var(--accent-deep);
+    }
+
     .footer {
       padding: 0 0 44px;
     }
@@ -616,12 +645,15 @@
         <div class="brand-copy">
           <div class="brand-eyebrow">Platform Brief</div>
           <div class="brand-title">Holdem Exploration</div>
+          <div class="brand-byline">by Jacky</div>
         </div>
       </div>
       <nav class="nav-links">
         <a href="#overview">Overview</a>
         <a href="#architecture">Architecture</a>
         <a href="#pipeline">Training</a>
+        <a href="#api">API</a>
+        <a href="#data">Data</a>
         <a href="#runtime">Runtime</a>
         <a href="#platform">Platform</a>
         <a href="#appendix">Appendix</a>
@@ -947,6 +979,103 @@ training/versions/vN/*</pre>
       </div>
     </section>
 
+    <section class="section shell" id="api">
+      <div class="section-head">
+        <h2 class="reveal">API and service layer</h2>
+        <p class="reveal">
+          The backend is deliberately thin at the HTTP layer and concentrated at the service layer.
+          FastAPI exposes a concise contract, while `EngineService` handles strategy loading, `spot_key`
+          construction, three-layer lookup, reporting, and version-aware retrieval.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card reveal">
+          <div class="kicker">Route groups</div>
+          <h3>Strategy, analysis, and reporting are exposed as separate surfaces.</h3>
+          <ul class="stack-list">
+            <li><strong>/strategy</strong><span>Single-spot lookup, active version, and version listing</span></li>
+            <li><strong>/analysis</strong><span>Hand and spot analysis flows built on top of strategy lookup results</span></li>
+            <li><strong>/reports</strong><span>Population summaries, deviation ranking, and inter-version comparison</span></li>
+          </ul>
+        </article>
+
+        <article class="card reveal">
+          <div class="kicker">Schemas</div>
+          <h3>Pydantic models define a stable contract across product surfaces.</h3>
+          <p>
+            `GameState`, `ActionFrequencies`, `StrategyResponse`, `PopulationSummary`, `VersionInfo`,
+            and `DeviationReport` are shared concepts across API responses, tests, CLI output, and
+            frontend rendering. This keeps the online product path strict and predictable.
+          </p>
+          <ul class="note-list">
+            <li><strong>Input:</strong> hero position, villain position, stack depth, board state, and action sequence.</li>
+            <li><strong>Output:</strong> aligned GTO, population, proprietary frequencies, plus reasoning and EV context.</li>
+          </ul>
+        </article>
+
+        <article class="card reveal">
+          <div class="kicker">EngineService</div>
+          <h3>The runtime core is in-memory, version-aware, and artifact-backed.</h3>
+          <p>
+            On startup, the service loads the GTO baseline, population tendencies, and the active
+            proprietary strategy package from disk. During request handling, it resolves the active
+            package in memory rather than recomputing strategies online.
+          </p>
+          <pre class="diagram">FastAPI startup
+   │
+   ▼
+create EngineService
+   │
+   ├── load gto_baseline.json
+   ├── load population_data.json
+   ├── scan training/versions/*
+   └── resolve active version
+   ▼
+serve lookups from memory</pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell" id="data">
+      <div class="section-head">
+        <h2 class="reveal">Data architecture</h2>
+        <p class="reveal">
+          The current system is artifact-first rather than database-first. That is not an omission in the
+          architecture; it is the chosen operating model for the current stage, favoring deterministic release
+          packages over heavier online dependencies.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="card reveal">
+          <div class="kicker">Current source of truth</div>
+          <h3>Versioned JSON artifacts drive the online experience.</h3>
+          <ul class="stack-list">
+            <li><strong>solver/gto_baseline.json</strong><span>Baseline strategic reference used at serving and training time</span></li>
+            <li><strong>training/population_data.json</strong><span>Observed population behavior aggregated by `spot_key`</span></li>
+            <li><strong>training/proprietary_strategy.json</strong><span>Convenience copy of the current exploitative strategy package</span></li>
+            <li><strong>training/versions/vN/*</strong><span>Versioned strategy snapshots, metadata, and diffs</span></li>
+          </ul>
+        </article>
+
+        <article class="card reveal">
+          <div class="kicker">Persistence posture</div>
+          <h3>Postgres and Redis are provisioned as scale layers, not yet the live center.</h3>
+          <p>
+            The repository already includes database and cache dependencies and a `docker-compose`
+            definition for Postgres and Redis. The parser even emits PostgreSQL-ready schema and COPY
+            statements. However, the live product path does not currently depend on those services.
+          </p>
+          <ul class="note-list">
+            <li><strong>Postgres:</strong> aligned with parser outputs and ready for more formalized historical storage.</li>
+            <li><strong>Redis:</strong> prepared for cache, queueing, and higher-throughput distribution layers.</li>
+            <li><strong>Today:</strong> online serving remains simpler and lower-risk by reading versioned artifacts directly.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
     <section class="section shell" id="runtime">
       <div class="section-head">
         <h2 class="reveal">Runtime serving model</h2>
@@ -1005,6 +1134,50 @@ nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
       </div>
     </section>
 
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Solver, validation, and release discipline</h2>
+        <p class="reveal">
+          The stack is intentionally broader than the current online path. It already includes a solver
+          integration layer, statistical deviation analysis, Monte Carlo validation, and formal version
+          release management. Together, these pieces turn the project into a strategy platform rather
+          than a single model endpoint.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card reveal">
+          <div class="kicker">Solver layer</div>
+          <h3>PioSOLVER integration exists upstream of serving.</h3>
+          <p>
+            The `solver/` package supports both prebuilt GTO reference data and direct PioSOLVER UPI
+            integration. That means the system can evolve its GTO baseline through solver-backed generation
+            without coupling online serving to expensive real-time solve operations.
+          </p>
+        </article>
+
+        <article class="card reveal">
+          <div class="kicker">Validation layer</div>
+          <h3>Strategy packages are checked before release.</h3>
+          <p>
+            The validation stage compares proprietary and GTO policies against population tendencies using
+            Monte Carlo simulation. The resulting metrics include aggregate EV gain, per-spot gain,
+            holdout concordance, and degenerate strategy detection.
+          </p>
+        </article>
+
+        <article class="card reveal">
+          <div class="kicker">Release layer</div>
+          <h3>Every proprietary package is treated as a versioned product release.</h3>
+          <p>
+            `training/deploy.py` writes a new strategy snapshot, metadata, diff reports, and an active
+            pointer. That creates an auditable strategy history and allows the product to present release
+            progression rather than a single opaque current model.
+          </p>
+        </article>
+      </div>
+    </section>
+
     <section class="section shell" id="platform">
       <div class="section-head">
         <h2 class="reveal">Platform stack</h2>
@@ -1038,6 +1211,31 @@ nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
             <li><strong>PioSOLVER</strong><span>Integrated at the solver layer for deeper baseline generation when available</span></li>
             <li><strong>Postgres</strong><span>Provisioned in infrastructure and aligned with parser outputs for formalized data persistence</span></li>
             <li><strong>Redis</strong><span>Provisioned for cache and future workload distribution when serving moves beyond artifact-only paths</span></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="grid-2">
+        <article class="card reveal">
+          <div class="kicker">Maturity assessment</div>
+          <h3>A complete foundation with selective simplification at runtime.</h3>
+          <p>
+            The platform already contains the essential layers required for a durable strategy product:
+            ingestion, baseline generation, population modeling, exploitative adjustment, validation,
+            release management, API delivery, and user-facing interfaces. The main simplification is not
+            architectural breadth; it is the choice to keep the online path artifact-backed for now.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Expansion path</div>
+          <h3>The next step is deeper operationalization, not a redesign.</h3>
+          <ul class="note-list">
+            <li><strong>Data:</strong> move more historical and derived artifacts into persistent stores.</li>
+            <li><strong>Serving:</strong> add cache and richer runtime orchestration as request volume grows.</li>
+            <li><strong>Strategy:</strong> increase solver-backed baseline coverage and refine exploit generation.</li>
+            <li><strong>Platform:</strong> strengthen observability, promotion workflows, rollback, and release governance.</li>
           </ul>
         </article>
       </div>
@@ -1094,6 +1292,9 @@ nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
             This page is written as a direct platform brief for partners, investors, and senior
             stakeholders evaluating system design, productization discipline, and technical depth.
           </p>
+          <p>
+            Prepared by Jacky.
+          </p>
         </article>
       </div>
     </section>
@@ -1102,7 +1303,7 @@ nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
   <footer class="footer shell">
     <div class="footer-card">
       Holdem Exploration architecture brief. Static delivery page generated from the platform’s
-      technical system documentation and architecture diagrams.
+      technical system documentation and architecture diagrams. Prepared by Jacky.
     </div>
   </footer>
 
