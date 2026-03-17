@@ -329,6 +329,12 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .grid-1 {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 1fr;
+    }
+
     .card {
       background: var(--paper-strong);
       border: 1px solid rgba(19, 32, 51, 0.08);
@@ -348,6 +354,121 @@
       font-size: var(--body);
       line-height: 1.75;
       color: var(--muted);
+    }
+
+    .prose-card {
+      background: var(--paper-strong);
+      border: 1px solid rgba(19, 32, 51, 0.08);
+      border-radius: 26px;
+      box-shadow: var(--shadow-md);
+      padding: 28px;
+    }
+
+    .prose-card h3 {
+      margin: 12px 0 0;
+      font-size: clamp(1.2rem, 2vw, 1.6rem);
+      letter-spacing: -0.04em;
+    }
+
+    .prose-card p {
+      margin: 14px 0 0;
+      font-size: var(--body);
+      line-height: 1.84;
+      color: var(--muted);
+      max-width: 960px;
+    }
+
+    .detail-list {
+      margin: 18px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .detail-list li {
+      padding-left: 18px;
+      position: relative;
+      color: var(--muted);
+      font-size: var(--body);
+      line-height: 1.76;
+    }
+
+    .detail-list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.78em;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+      transform: translateY(-50%);
+    }
+
+    .detail-list strong {
+      color: var(--ink);
+    }
+
+    .split-note {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 18px;
+      padding: 18px 0;
+      border-top: 1px solid rgba(19, 32, 51, 0.08);
+    }
+
+    .split-note:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .split-note:last-child {
+      padding-bottom: 0;
+    }
+
+    .split-note strong {
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
+    }
+
+    .split-note p {
+      margin: 0;
+      max-width: none;
+    }
+
+    .code-block {
+      margin-top: 16px;
+      padding: 20px 22px;
+      border-radius: 20px;
+      background: #0f1725;
+      color: #dce6f2;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: clamp(0.76rem, 0.95vw, 0.9rem);
+      line-height: 1.7;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(19, 32, 51, 0.08);
+      background: rgba(31, 99, 216, 0.06);
+      font-size: 0.82rem;
+      color: var(--accent-deep);
+      font-weight: 700;
+      letter-spacing: -0.01em;
     }
 
     .kicker {
@@ -592,7 +713,8 @@
       .grid-4,
       .grid-3,
       .grid-2,
-      .band-grid {
+      .band-grid,
+      .split-note {
         grid-template-columns: 1fr;
       }
 
@@ -623,7 +745,8 @@
       .architecture-frame,
       .band,
       .card,
-      .hero-panel {
+      .hero-panel,
+      .prose-card {
         padding: 20px;
       }
     }
@@ -979,6 +1102,108 @@ training/versions/vN/*</pre>
       </div>
     </section>
 
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Training internals</h2>
+        <p class="reveal">
+          The training layer is not a single script wrapped around a few heuristics. It is a staged
+          transformation pipeline with separate responsibilities for population extraction, deviation
+          discovery, exploit generation, validation, and release production. Each stage changes the
+          representation of the strategy from raw observations to a deployable package.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Population modeling</div>
+          <h3>Observed behavior is aggregated into spot-level frequency distributions.</h3>
+          <p>
+            `training/population.py` consumes parser outputs when full CSVs are available and falls back
+            to weaker aggregate analysis sources when they are not. Its role is to transform hand-level
+            action sequences into canonical spot-level distributions keyed by `spot_key`.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Inputs:</strong> `hands.csv`, `players.csv`, `actions.csv`, or lower-fidelity aggregated analysis artifacts.</li>
+            <li><strong>Recognition targets:</strong> preflop RFI, defense versus RFI, blind defense, flop c-bets, responses to c-bets, turn barrels, and later-street continuations.</li>
+            <li><strong>Outputs:</strong> `action_freqs`, `sample_size`, and confidence-style metadata for each generated spot.</li>
+            <li><strong>Role in the system:</strong> this is the bridge from raw behavior data into modelable strategy distributions.</li>
+          </ul>
+          <div class="code-block">spot_key -&gt; {
+  action_freqs,
+  sample_size,
+  confidence
+}</div>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Deviation analysis</div>
+          <h3>Population is compared against GTO to identify exploitable divergence.</h3>
+          <p>
+            `training/deviation.py` compares the baseline layer and the observed population layer across
+            their shared spots. The objective is not only to detect that behavior differs, but also to
+            rank where that difference is both statistically meaningful and economically relevant.
+          </p>
+          <div class="split-note">
+            <strong>Delta computation</strong>
+            <p>Each action frequency is compared action-by-action to produce a signed deviation vector.</p>
+          </div>
+          <div class="split-note">
+            <strong>Statistical test</strong>
+            <p>A chi-squared test is applied to estimate whether the observed behavioral shift is significant.</p>
+          </div>
+          <div class="split-note">
+            <strong>Classification</strong>
+            <p>Dominant patterns are labeled into categories such as over-folding, over-calling, under-raising, or generic sizing error.</p>
+          </div>
+          <div class="split-note">
+            <strong>Economic signal</strong>
+            <p>Each deviation receives an EV opportunity estimate that determines exploit priority.</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="grid-2" style="margin-top: 18px;">
+        <article class="prose-card reveal">
+          <div class="kicker">Proprietary strategy generation</div>
+          <h3>Exploit policy is derived by controlled displacement away from GTO.</h3>
+          <p>
+            `training/adjustment.py` is the heart of the proprietary layer. It does not train a neural
+            network and it does not solve a fresh equilibrium online. Instead, it takes statistically
+            credible population deviations and transforms them into exploitative frequency shifts.
+          </p>
+          <div class="code-block">prop_freq = gto_freq + alpha * delta * confidence_weight</div>
+          <ul class="detail-list">
+            <li><strong>`alpha`:</strong> controls how aggressively the system leans from GTO toward exploit.</li>
+            <li><strong>`delta`:</strong> captures how far the field is drifting from the baseline.</li>
+            <li><strong>`confidence_weight`:</strong> scales the adjustment by statistical reliability and sample size.</li>
+            <li><strong>Post-processing:</strong> action frequencies are clamped, normalized, and annotated with EV gain estimates and reasoning.</li>
+          </ul>
+          <div class="badge-row">
+            <span class="badge">Over-folding -> more aggression</span>
+            <span class="badge">Over-calling -> less bluff density</span>
+            <span class="badge">Under-raising -> more pressure</span>
+          </div>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Validation</div>
+          <h3>Every candidate strategy package is stress-tested before release.</h3>
+          <p>
+            `training/validation.py` runs a simplified Monte Carlo process to compare the proprietary
+            policy against the GTO baseline when both are played into the observed population tendencies.
+            The goal is not to claim perfect game-tree evaluation, but to reject obviously weak or unstable
+            policy changes before deployment.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Holdout split:</strong> spots are divided into training and holdout sets to reduce overfitting to the same observations.</li>
+            <li><strong>Simulation:</strong> hero and villain actions are sampled from their respective action-frequency distributions.</li>
+            <li><strong>Payoff model:</strong> a simplified payoff matrix estimates relative EV outcomes under each policy pairing.</li>
+            <li><strong>Outputs:</strong> aggregate EV gain, average EV gain per spot, holdout concordance, and degenerate strategy flags.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
     <section class="section shell" id="api">
       <div class="section-head">
         <h2 class="reveal">API and service layer</h2>
@@ -1037,6 +1262,58 @@ serve lookups from memory</pre>
       </div>
     </section>
 
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Runtime internals</h2>
+        <p class="reveal">
+          The online service is intentionally simple in topology, but not simplistic in behavior.
+          Its primary job is to turn a `GameState` into a stable `StrategyResponse` by resolving
+          the correct spot, loading aligned layers, and returning a coherent comparison payload.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Engine lookup behavior</div>
+          <h3>The service resolves three aligned strategic perspectives for every query.</h3>
+          <p>
+            For each request, `EngineService` first builds a canonical `spot_key`. It then loads
+            the corresponding GTO frequencies, observed population frequencies, and active proprietary
+            frequencies. The response is assembled as a single joined structure so the product never has
+            to reconcile mismatched sources itself.
+          </p>
+          <ul class="detail-list">
+            <li><strong>GTO layer:</strong> baseline strategic frequencies for the matched spot.</li>
+            <li><strong>Population layer:</strong> observed field action frequencies plus sample size.</li>
+            <li><strong>Proprietary layer:</strong> active exploit package frequencies plus EV gain estimate.</li>
+            <li><strong>Reasoning:</strong> a deterministic narrative built from the largest observed deviations and proprietary shift.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Fallback and continuity</div>
+          <h3>The product remains usable even when live infrastructure is incomplete.</h3>
+          <p>
+            The backend itself includes default and demo strategy fallbacks, and the frontend mirrors
+            the API types while providing a demo mode when the backend is unavailable. That makes the
+            product robust for presentation, design iteration, and isolated frontend development.
+          </p>
+          <div class="split-note">
+            <strong>Backend fallback</strong>
+            <p>Missing or malformed JSON data falls back to demo records so the service remains callable.</p>
+          </div>
+          <div class="split-note">
+            <strong>Frontend fallback</strong>
+            <p>If API requests fail, the web client promotes itself into demo mode and still renders product flows.</p>
+          </div>
+          <div class="split-note">
+            <strong>Operational effect</strong>
+            <p>The system can be demonstrated and iterated as a product even before all production dependencies are formalized.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section class="section shell" id="data">
       <div class="section-head">
         <h2 class="reveal">Data architecture</h2>
@@ -1072,6 +1349,80 @@ serve lookups from memory</pre>
             <li><strong>Redis:</strong> prepared for cache, queueing, and higher-throughput distribution layers.</li>
             <li><strong>Today:</strong> online serving remains simpler and lower-risk by reading versioned artifacts directly.</li>
           </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Solver and baseline generation</h2>
+        <p class="reveal">
+          The solver layer is upstream of online serving. Its purpose is to build and evolve the GTO
+          baseline rather than to make the production path depend on live solve latency.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Reference mode</div>
+          <h3>Curated GTO reference data ensures the system can operate without local solver access.</h3>
+          <p>
+            `solver/gto_reference.py` contains prebuilt strategic reference spots. This gives the platform
+            a portable baseline generation fallback and makes development, validation, and product iteration
+            possible even on environments where PioSOLVER is not installed.
+          </p>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">PioSOLVER mode</div>
+          <h3>UPI integration supports deeper baseline expansion when solver infrastructure is available.</h3>
+          <p>
+            `solver/upi_client.py` wraps PioSOLVER’s stdin/stdout protocol. Combined with `batch_solver.py`,
+            the platform can configure trees, apply board and bet-size settings, solve prioritized spots,
+            checkpoint progress, and export resulting strategies into baseline artifacts.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Tree setup:</strong> pot, board, effective stack, ranges, and sizing trees are configurable.</li>
+            <li><strong>Batch solving:</strong> spots are solved one at a time with checkpoint support.</li>
+            <li><strong>Fallback behavior:</strong> if solving fails, the system drops back to reference mode rather than halting the pipeline.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Rust core and ingestion layer</h2>
+        <p class="reveal">
+          The Rust layer is where the platform starts to look like infrastructure rather than application code.
+          It handles scale-sensitive text parsing, structured extraction, and reusable low-level strategy abstractions.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Parser</div>
+          <h3>Large hand-history corpora are converted into structured tables at high throughput.</h3>
+          <p>
+            `core/parser` can traverse directories of `.txt` hand histories, split them into single hands,
+            parse header, seats, actions, board progression, and summary lines, and then stream normalized
+            outputs into CSVs suitable for analytical processing.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Outputs:</strong> `hands.csv`, `players.csv`, `actions.csv`.</li>
+            <li><strong>Concurrency:</strong> parallel batch processing is built in.</li>
+            <li><strong>Database bridge:</strong> the parser emits PostgreSQL COPY schema and load statements automatically.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Engine abstractions</div>
+          <h3>StrategyStore and spot primitives provide a path toward faster native serving.</h3>
+          <p>
+            `core/engine` includes action-frequency containers, three-layer strategy records, spot encoding,
+            and nearest-neighbor lookup logic. These pieces are not yet the primary serving runtime, but they
+            are exactly the kinds of primitives needed if the platform moves more of its hot path into Rust.
+          </p>
         </article>
       </div>
     </section>
@@ -1217,6 +1568,318 @@ nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
     </section>
 
     <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Repository topology</h2>
+        <p class="reveal">
+          The repository is organized around system roles rather than framework boundaries.
+          That matters because the architecture is easiest to understand when read as a
+          production pipeline: ingest, normalize, model, validate, release, serve, and present.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Primary modules</div>
+          <h3>Each top-level directory maps to a distinct technical responsibility.</h3>
+          <ul class="detail-list">
+            <li><strong>`core/`:</strong> Rust-native parsing and lower-level strategy abstractions for performance-sensitive paths.</li>
+            <li><strong>`solver/`:</strong> GTO reference generation, PioSOLVER integration, batch solve orchestration, and prioritized spot generation.</li>
+            <li><strong>`training/`:</strong> population aggregation, deviation ranking, proprietary adjustment, validation, deployment, and version management.</li>
+            <li><strong>`api/`:</strong> FastAPI application, schemas, routers, and `EngineService` runtime lookup logic.</li>
+            <li><strong>`web/`:</strong> Next.js product interface that renders overview, analyze, population, and versions workflows.</li>
+            <li><strong>`cli/`:</strong> direct operator tooling for research, debugging, training triggers, and service-side inspection.</li>
+            <li><strong>`output/`:</strong> external-facing technical materials and architecture brief artifacts.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Architectural implication</div>
+          <h3>The repo already behaves like a platform monorepo, even if some layers are still lightweight.</h3>
+          <p>
+            What stands out technically is not just that multiple languages are present, but that
+            each one has a disciplined role. Rust handles ingestion and future performance-oriented
+            primitives, Python owns modeling and serving logic, and the web layer stays focused on
+            product delivery. This separation reduces accidental coupling and makes it feasible to
+            harden individual layers without rewriting the whole system.
+          </p>
+          <div class="code-block">core/        - native ingestion and engine primitives
+solver/      - baseline generation
+training/    - offline strategy production
+api/         - online delivery
+web/         - product surface
+cli/         - operator interface</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Product surfaces and operator interfaces</h2>
+        <p class="reveal">
+          The public-facing product is the web interface, but the repo also includes a direct CLI
+          surface and a growing internal-quality layer through tests. Together they make the platform
+          usable both as a product and as an engineering system.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="prose-card reveal">
+          <div class="kicker">Web</div>
+          <h3>Next.js product layer</h3>
+          <p>
+            The web application exposes overview, analysis, population, and versions pages. Its role is
+            not to perform strategy computation itself, but to turn the backend’s aligned three-layer
+            responses into a usable product experience.
+          </p>
+        </article>
+        <article class="prose-card reveal">
+          <div class="kicker">CLI</div>
+          <h3>Operator and research interface</h3>
+          <p>
+            The CLI mirrors the service layer directly, supporting interactive analysis, spot lookup,
+            version inspection, population stats, and training triggers. It functions as the lowest-friction
+            operator interface for developers and strategy researchers.
+          </p>
+        </article>
+        <article class="prose-card reveal">
+          <div class="kicker">Testing</div>
+          <h3>Current quality posture</h3>
+          <p>
+            Integration tests cover engine initialization, core API contracts, version behavior, spot-key
+            formatting, deviation ranking, and key endpoint responses. The current suite is strongest as
+            a smoke and contract layer, with room to deepen solver, training, and parser verification.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Strategy object anatomy</h2>
+        <p class="reveal">
+          The entire platform revolves around a canonical strategy object keyed by spot and
+          represented as aligned action-frequency distributions. This common data shape is
+          what lets solver outputs, population observations, proprietary policy, API schemas,
+          CLI tables, and the web product all remain interoperable.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Spot identity</div>
+          <h3>`spot_key` reduces a game situation to a stable lookup address.</h3>
+          <p>
+            The system does not identify a query by full raw hand history. It extracts the
+            decision-relevant state into a compact canonical key that can be reused across
+            offline artifacts and online lookups.
+          </p>
+          <div class="code-block">nlhe_cash:{positions}:{stack_depth}:{board_texture}:{action_sequence}</div>
+          <ul class="detail-list">
+            <li><strong>Positions:</strong> hero and villain positional context such as BTN, SB, BB, CO.</li>
+            <li><strong>Stack depth:</strong> effective stack abstraction in big blinds.</li>
+            <li><strong>Board texture:</strong> simplified board-state encoding for postflop matching.</li>
+            <li><strong>Action sequence:</strong> compressed representation of betting history up to the current decision.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Strategy payload</div>
+          <h3>Every layer ultimately resolves to action frequencies plus operating context.</h3>
+          <p>
+            The API response combines three aligned action distributions and attaches the
+            metadata required to interpret them. That includes sample size on the population
+            side, EV lift and version info on the proprietary side, and a reasoning layer
+            that explains why the exploit package departs from baseline.
+          </p>
+          <div class="code-block">{
+  spot_key,
+  gto: { action_freqs },
+  population: { action_freqs, sample_size },
+  proprietary: { action_freqs, ev_gain_estimate, version },
+  reasoning
+}</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Version artifact model</h2>
+        <p class="reveal">
+          One of the strongest engineering decisions in the current system is that proprietary
+          strategy is treated as a release artifact rather than a mutable black box. This makes
+          the strategy layer inspectable, comparable, and reversible.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="card reveal">
+          <div class="kicker">Release package layout</div>
+          <pre class="diagram">training/versions/
+  active.json
+  v1/
+    strategy.json
+    metadata.json
+    diff_vs_previous.md
+  v2/
+    strategy.json
+    metadata.json
+    diff_vs_previous.md
+  vN/
+    ...</pre>
+          <p>
+            The active pointer separates release selection from release contents, which is
+            operationally useful for promotion, rollback, and side-by-side inspection.
+          </p>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Operational benefits</div>
+          <h3>Versioning is doing more than naming snapshots.</h3>
+          <ul class="detail-list">
+            <li><strong>Auditability:</strong> every deployed strategy package has metadata and a place in a historical sequence.</li>
+            <li><strong>Comparability:</strong> the product can show release-to-release changes in coverage and EV lift.</li>
+            <li><strong>Safety:</strong> an active pointer makes rollback a file-level change instead of a retraining event.</li>
+            <li><strong>Governance:</strong> release notes and metadata form the beginning of a formal promotion discipline.</li>
+            <li><strong>Portability:</strong> artifact packages can be moved across environments without requiring an online retrain.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Frontend and product data flow</h2>
+        <p class="reveal">
+          The web application is not only a presentation layer. It is the point where the
+          platform’s technical choices become legible to users: version awareness, aligned
+          strategy comparison, population insight, and fallback continuity all surface here.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Client architecture</div>
+          <h3>Next.js acts as a structured consumer of the backend contract.</h3>
+          <p>
+            The frontend uses a typed API client to request strategy, reports, and version
+            information. It mirrors backend response shapes rather than inventing its own data
+            model, which keeps product logic thin and makes UI iteration safer.
+          </p>
+          <ul class="detail-list">
+            <li><strong>Overview:</strong> summarizes current package status and top opportunities.</li>
+            <li><strong>Analyze:</strong> collects spot inputs and resolves the three-layer strategy comparison.</li>
+            <li><strong>Population:</strong> ranks broad deviations and opportunity clusters.</li>
+            <li><strong>Versions:</strong> presents release history, active package state, and comparative metadata.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Resilience by design</div>
+          <h3>Demo mode and API fallback keep the product surface operational.</h3>
+          <p>
+            A notable practical choice in the web layer is that it can degrade gracefully into
+            demo data when the backend is unavailable. That gives the product team a stable
+            surface for design, demos, and internal review even when infrastructure is incomplete
+            or offline.
+          </p>
+          <div class="split-note">
+            <strong>Business value</strong>
+            <p>The interface remains presentation-ready, which is useful for fundraising, partner demos, and parallel design work.</p>
+          </div>
+          <div class="split-note">
+            <strong>Engineering value</strong>
+            <p>Frontend and backend can evolve semi-independently without blocking each other on every change.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Infrastructure posture</h2>
+        <p class="reveal">
+          The infrastructure story is intentionally ahead of the current runtime story. Some
+          dependencies are already provisioned because the system is being built with the next
+          phase in mind, even if the present online path does not require them yet.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card reveal">
+          <div class="kicker">Current live dependency shape</div>
+          <h3>Low-complexity serving</h3>
+          <p>
+            Today’s online system can operate with the API process, filesystem artifacts, and
+            the frontend. That keeps deployments simple and reduces the number of moving parts
+            required for an externally usable product.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Provisioned but not central</div>
+          <h3>Postgres and Redis are strategic, not cosmetic.</h3>
+          <p>
+            They are present because the parser output, training history, and higher-volume serving
+            path will eventually benefit from persistent storage and caching. Their current absence
+            from the hot path should be understood as staging discipline, not architectural confusion.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Deployment implication</div>
+          <h3>The system can scale gradually.</h3>
+          <p>
+            Because artifacts already define clean boundaries, the platform can introduce formal data
+            stores, cache layers, and richer orchestration incrementally rather than through a risky
+            full-stack rewrite.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="section-head">
+        <h2 class="reveal">Engineering priorities and next phase</h2>
+        <p class="reveal">
+          From a technical diligence perspective, the important question is not whether the repo
+          needs more work. It does. The more important point is whether that work is extension
+          work on a credible foundation or rescue work on a fragile prototype. The evidence in
+          this repository supports the former.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="prose-card reveal">
+          <div class="kicker">Near-term priorities</div>
+          <h3>The next layer of investment is operational hardening.</h3>
+          <ul class="detail-list">
+            <li><strong>Persistence:</strong> migrate more training history, releases, and raw parse outputs into formal storage.</li>
+            <li><strong>Observability:</strong> add release telemetry, endpoint monitoring, and artifact integrity checks.</li>
+            <li><strong>Promotion workflow:</strong> formalize how strategy packages move from training output to active deployment.</li>
+            <li><strong>Coverage:</strong> expand solver-backed baseline breadth and population coverage across more spots and textures.</li>
+            <li><strong>Validation depth:</strong> strengthen holdout methodology and add richer simulation or benchmark evaluation.</li>
+          </ul>
+        </article>
+
+        <article class="prose-card reveal">
+          <div class="kicker">Why this matters</div>
+          <h3>The platform is already beyond the stage of proving basic technical feasibility.</h3>
+          <p>
+            The repository demonstrates that the team can already ingest raw data, produce structured
+            statistics, derive exploit strategy, version releases, serve results, and present them
+            through a product interface. The next question is not whether such a system can exist; it
+            is how quickly it should mature into a more operationally robust decision platform.
+          </p>
+          <div class="badge-row">
+            <span class="badge">Credible technical spine</span>
+            <span class="badge">Clear scale path</span>
+            <span class="badge">Release discipline exists</span>
+            <span class="badge">Product surface already usable</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
       <div class="grid-2">
         <article class="card reveal">
           <div class="kicker">Maturity assessment</div>
@@ -1237,6 +1900,36 @@ nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
             <li><strong>Strategy:</strong> increase solver-backed baseline coverage and refine exploit generation.</li>
             <li><strong>Platform:</strong> strengthen observability, promotion workflows, rollback, and release governance.</li>
           </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="grid-1">
+        <article class="prose-card reveal">
+          <div class="kicker">Current architecture reality</div>
+          <h3>A broad platform foundation already exists, even though the online path remains intentionally narrow.</h3>
+          <p>
+            The clearest way to understand the current maturity of Holdem Exploration is this: it is not a toy
+            frontend wrapped around a few hardcoded demos, and it is not yet a fully industrialized strategy cloud.
+            It already has real ingestion, real population modeling, real deviation analysis, real strategy versioning,
+            and real serving interfaces. At the same time, it still makes deliberate simplifying choices in the
+            production path by serving versioned artifacts directly instead of introducing every heavy dependency at once.
+          </p>
+          <p>
+            That balance matters. It means the system already demonstrates a credible technical spine while keeping the
+            product path stable, inspectable, and easy to evolve. The next phase is not a conceptual reboot. It is the
+            operationalization of capabilities that are already visible in the repository: formal persistence, stronger
+            runtime orchestration, richer solver-backed baseline production, and deeper native execution where warranted.
+          </p>
+          <div class="badge-row">
+            <span class="badge">Ingestion exists</span>
+            <span class="badge">Training exists</span>
+            <span class="badge">Validation exists</span>
+            <span class="badge">Versioning exists</span>
+            <span class="badge">Serving exists</span>
+            <span class="badge">Scale layers prepared</span>
+          </div>
         </article>
       </div>
     </section>
