@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Holdem Exploration Platform</title>
+  <meta
+    name="description"
+    content="A technical architecture brief for the Holdem Exploration platform: parsing, GTO baseline generation, population modeling, proprietary strategy training, serving, and product delivery."
+  />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Manrope:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #f5f2eb;
+      --paper: rgba(255, 255, 255, 0.78);
+      --paper-strong: rgba(255, 255, 255, 0.94);
+      --ink: #132033;
+      --muted: #5f6d7e;
+      --line: rgba(19, 32, 51, 0.12);
+      --line-strong: rgba(19, 32, 51, 0.2);
+      --accent: #1f63d8;
+      --accent-soft: rgba(31, 99, 216, 0.1);
+      --accent-deep: #123e8e;
+      --success: #0f7a52;
+      --warm: #b8792f;
+      --shadow-lg: 0 24px 70px rgba(15, 26, 44, 0.12);
+      --shadow-md: 0 18px 40px rgba(15, 26, 44, 0.08);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --container: min(1180px, calc(100vw - 40px));
+      --display: clamp(3rem, 9vw, 7.8rem);
+      --h1: clamp(2rem, 4vw, 3.5rem);
+      --h2: clamp(1.45rem, 2.8vw, 2.25rem);
+      --h3: clamp(1rem, 1.4vw, 1.15rem);
+      --body: clamp(0.97rem, 1.25vw, 1.08rem);
+      --small: clamp(0.8rem, 0.95vw, 0.92rem);
+      --section-pad: clamp(3.5rem, 8vw, 7rem);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Manrope", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(31, 99, 216, 0.14), transparent 24%),
+        radial-gradient(circle at 85% 18%, rgba(184, 121, 47, 0.12), transparent 18%),
+        linear-gradient(180deg, #f8f5ef 0%, #f5f2eb 100%);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    ::selection {
+      background: rgba(31, 99, 216, 0.14);
+    }
+
+    .shell {
+      width: var(--container);
+      margin: 0 auto;
+    }
+
+    .site-nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(18px);
+      background: rgba(245, 242, 235, 0.8);
+      border-bottom: 1px solid rgba(19, 32, 51, 0.08);
+    }
+
+    .site-nav .shell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 16px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #3277ef 0%, #174da8 100%);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      box-shadow: 0 14px 30px rgba(31, 99, 216, 0.24);
+    }
+
+    .brand-copy {
+      min-width: 0;
+    }
+
+    .brand-eyebrow {
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+    }
+
+    .brand-title {
+      margin-top: 3px;
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .nav-links a {
+      padding: 9px 14px;
+      font-size: 0.84rem;
+      color: var(--muted);
+      border-radius: 999px;
+      transition: background 160ms ease, color 160ms ease;
+    }
+
+    .nav-links a:hover {
+      background: rgba(255, 255, 255, 0.7);
+      color: var(--ink);
+    }
+
+    .hero {
+      padding: clamp(3rem, 7vw, 6rem) 0 var(--section-pad);
+    }
+
+    .hero-grid {
+      display: grid;
+      gap: 26px;
+      grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(19, 32, 51, 0.1);
+      background: rgba(255, 255, 255, 0.6);
+      color: var(--muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .hero h1 {
+      margin: 18px 0 0;
+      font-family: "Instrument Serif", serif;
+      font-size: var(--display);
+      font-weight: 400;
+      line-height: 0.92;
+      letter-spacing: -0.06em;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--accent-deep);
+    }
+
+    .hero-copy {
+      margin-top: 24px;
+      max-width: 760px;
+      font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+      line-height: 1.75;
+      color: #233346;
+    }
+
+    .hero-panel {
+      background: var(--paper);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: var(--shadow-lg);
+      border-radius: var(--radius-xl);
+      padding: 26px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 5px;
+      background: linear-gradient(90deg, var(--accent), rgba(31, 99, 216, 0.2), rgba(184, 121, 47, 0.75));
+    }
+
+    .panel-label {
+      font-size: 0.76rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .hero-panel h2 {
+      margin: 12px 0 0;
+      font-size: clamp(1.5rem, 2vw, 2rem);
+      line-height: 1.2;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-panel p {
+      margin: 14px 0 0;
+      font-size: var(--body);
+      line-height: 1.75;
+      color: var(--muted);
+    }
+
+    .hero-stats {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .mini-stat {
+      border-radius: 18px;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(19, 32, 51, 0.08);
+    }
+
+    .mini-stat strong {
+      display: block;
+      font-size: clamp(1.4rem, 2vw, 1.95rem);
+      letter-spacing: -0.05em;
+    }
+
+    .mini-stat span {
+      display: block;
+      margin-top: 6px;
+      font-size: var(--small);
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    .section {
+      padding: 0 0 var(--section-pad);
+    }
+
+    .section-head {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+      align-items: end;
+      margin-bottom: 28px;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-family: "Instrument Serif", serif;
+      font-weight: 400;
+      font-size: var(--h1);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+    }
+
+    .section-head p {
+      margin: 0;
+      font-size: var(--body);
+      line-height: 1.8;
+      color: var(--muted);
+      max-width: 720px;
+    }
+
+    .grid-4,
+    .grid-3,
+    .grid-2 {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--paper-strong);
+      border: 1px solid rgba(19, 32, 51, 0.08);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      padding: 24px;
+    }
+
+    .card h3 {
+      margin: 12px 0 0;
+      font-size: var(--h3);
+      letter-spacing: -0.03em;
+    }
+
+    .card p,
+    .card li {
+      font-size: var(--body);
+      line-height: 1.75;
+      color: var(--muted);
+    }
+
+    .kicker {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .metric {
+      font-size: clamp(2rem, 3vw, 3rem);
+      letter-spacing: -0.06em;
+      line-height: 1;
+      font-weight: 800;
+      margin-top: 12px;
+    }
+
+    .architecture-frame {
+      padding: 28px;
+      border-radius: 34px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.64)),
+        linear-gradient(135deg, rgba(31, 99, 216, 0.08), rgba(184, 121, 47, 0.08));
+      border: 1px solid rgba(19, 32, 51, 0.08);
+      box-shadow: var(--shadow-lg);
+    }
+
+    pre.diagram {
+      margin: 0;
+      padding: 28px;
+      white-space: pre;
+      overflow-x: auto;
+      border-radius: 24px;
+      background: #0f1725;
+      color: #dfe7f3;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: clamp(0.5rem, 0.8vw, 0.8rem);
+      line-height: 1.5;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+    }
+
+    .timeline-step {
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+      padding: 18px 0;
+      border-top: 1px solid rgba(19, 32, 51, 0.08);
+    }
+
+    .timeline-step:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .timeline-step:last-child {
+      padding-bottom: 0;
+    }
+
+    .step-no {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-deep);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .timeline-step strong {
+      display: block;
+      font-size: 1rem;
+      letter-spacing: -0.03em;
+    }
+
+    .timeline-step p {
+      margin: 7px 0 0;
+      font-size: var(--body);
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .stack-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .stack-list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 0;
+      border-top: 1px solid rgba(19, 32, 51, 0.08);
+    }
+
+    .stack-list li:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .stack-list strong {
+      min-width: 130px;
+      font-size: 0.94rem;
+      letter-spacing: -0.03em;
+    }
+
+    .stack-list span {
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.94rem;
+      line-height: 1.6;
+    }
+
+    .band {
+      padding: 36px;
+      border-radius: 34px;
+      background: linear-gradient(135deg, #15243c 0%, #1b2f50 58%, #13376f 100%);
+      color: white;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .band-grid {
+      display: grid;
+      gap: 28px;
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+      align-items: center;
+    }
+
+    .band .panel-label,
+    .band p,
+    .band li {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .band h2 {
+      margin: 12px 0 0;
+      font-family: "Instrument Serif", serif;
+      font-weight: 400;
+      letter-spacing: -0.05em;
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 0.98;
+    }
+
+    .band ul {
+      margin: 16px 0 0;
+      padding-left: 18px;
+    }
+
+    .band li + li {
+      margin-top: 10px;
+    }
+
+    .appendix-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .appendix-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      font-size: 0.9rem;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .appendix-links a:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .footer {
+      padding: 0 0 44px;
+    }
+
+    .footer-card {
+      padding: 20px 24px;
+      border-radius: 20px;
+      border: 1px solid rgba(19, 32, 51, 0.08);
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.65;
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 720ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 720ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1080px) {
+      .hero-grid,
+      .section-head,
+      .grid-4,
+      .grid-3,
+      .grid-2,
+      .band-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stack-list li {
+        flex-direction: column;
+      }
+
+      .stack-list span {
+        text-align: left;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .site-nav .shell {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .nav-links {
+        justify-content: flex-start;
+      }
+
+      pre.diagram {
+        padding: 18px;
+        font-size: 0.56rem;
+      }
+
+      .architecture-frame,
+      .band,
+      .card,
+      .hero-panel {
+        padding: 20px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-nav">
+    <div class="shell">
+      <div class="brand">
+        <span class="brand-mark">P</span>
+        <div class="brand-copy">
+          <div class="brand-eyebrow">Platform Brief</div>
+          <div class="brand-title">Holdem Exploration</div>
+        </div>
+      </div>
+      <nav class="nav-links">
+        <a href="#overview">Overview</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#pipeline">Training</a>
+        <a href="#runtime">Runtime</a>
+        <a href="#platform">Platform</a>
+        <a href="#appendix">Appendix</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero shell" id="overview">
+      <div class="hero-grid">
+        <div class="reveal">
+          <span class="eyebrow">Technical Architecture Brief</span>
+          <h1>Three-layer poker intelligence, <em>served as a product platform.</em></h1>
+          <p class="hero-copy">
+            Holdem Exploration combines hand-history parsing, GTO baseline generation,
+            population modeling, exploitative proprietary strategy training, versioned
+            deployment, API serving, and product delivery into a single architecture.
+            The result is a research-to-product system designed for repeatable strategy
+            development rather than one-off analysis.
+          </p>
+        </div>
+
+        <aside class="hero-panel reveal">
+          <div class="panel-label">Current Operating Model</div>
+          <h2>Artifact-backed serving with a clear path to scale.</h2>
+          <p>
+            The production path today is built around versioned strategy artifacts,
+            in-memory serving, and a lightweight product interface. The surrounding
+            infrastructure already anticipates the next layers: persistent storage,
+            cache-backed distribution, and deeper solver integration.
+          </p>
+          <div class="hero-stats">
+            <div class="mini-stat">
+              <strong>3</strong>
+              <span>Strategy layers: GTO baseline, population tendencies, proprietary exploit strategy</span>
+            </div>
+            <div class="mini-stat">
+              <strong>6</strong>
+              <span>Core system layers: parser, solver, training, serving, web, CLI</span>
+            </div>
+            <div class="mini-stat">
+              <strong>JSON</strong>
+              <span>Primary runtime source of truth for deployed strategy artifacts</span>
+            </div>
+            <div class="mini-stat">
+              <strong>vN</strong>
+              <span>Versioned strategy snapshots with metadata, diffs, and active pointer</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="grid-4">
+        <article class="card reveal">
+          <div class="kicker">System Thesis</div>
+          <div class="metric">Unified</div>
+          <p>
+            A single index model, `spot_key`, links training outputs, API lookups,
+            product surfaces, and strategy version comparisons across the entire stack.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Modeling Approach</div>
+          <div class="metric">Layered</div>
+          <p>
+            The platform is intentionally structured as GTO baseline, observed
+            population behavior, and proprietary exploit adaptation rather than
+            a monolithic black-box predictor.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Product Delivery</div>
+          <div class="metric">Online</div>
+          <p>
+            Strategy artifacts are trained offline, then loaded into a lightweight
+            serving layer that powers Web and CLI experiences with low operating complexity.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Scale Readiness</div>
+          <div class="metric">Prepared</div>
+          <p>
+            Postgres, Redis, Rust engine abstractions, and solver automation are already
+            present as foundational pieces for deeper production hardening.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell" id="architecture">
+      <div class="section-head">
+        <h2 class="reveal">System architecture</h2>
+        <p class="reveal">
+          The architecture is designed as a continuous pipeline that begins with raw hand
+          histories, produces structured population and strategy artifacts, and serves those
+          artifacts through product interfaces. Each layer is separable, but the full value
+          emerges when they operate as one loop.
+        </p>
+      </div>
+
+      <div class="architecture-frame reveal">
+        <pre class="diagram">                         ┌──────────────────────────────┐
+                         │        Hand Histories         │
+                         │   GGPoker / raw .txt files    │
+                         └──────────────┬───────────────┘
+                                        │
+                                        ▼
+                    ┌──────────────────────────────────────────┐
+                    │          Rust Parser: core/parser        │
+                    │  - parse hand text                       │
+                    │  - batch process                         │
+                    │  - output CSVs                           │
+                    └──────────────┬───────────────┬───────────┘
+                                   │               │
+                                   │               └─────────────────────┐
+                                   ▼                                     │
+                    ┌──────────────────────────────┐                     │
+                    │ temp/full_parse_output/      │                     │
+                    │ - hands.csv                  │                     │
+                    │ - players.csv                │                     │
+                    │ - actions.csv                │                     │
+                    └──────────────┬───────────────┘                     │
+                                   │                                     │
+                                   ▼                                     │
+                    ┌──────────────────────────────────────────┐          │
+                    │          training/population.py          │          │
+                    │  - aggregate action frequencies          │          │
+                    │  - build population tendencies           │          │
+                    └──────────────┬───────────────────────────┘          │
+                                   │                                      │
+                                   ▼                                      │
+                    ┌──────────────────────────────┐                      │
+                    │ training/population_data.json │                     │
+                    │ training/population_metadata  │                     │
+                    └──────────────┬───────────────┘                      │
+                                   │                                      │
+                                   ▼                                      │
+          ┌────────────────────────────────────────────────────────────┐   │
+          │                    training pipeline                       │   │
+          │  deviation.py  -> adjustment.py -> validation.py          │   │
+          │  compare GTO vs population                                │   │
+          │  generate proprietary exploit strategy                    │   │
+          │  validate via Monte Carlo                                 │   │
+          └──────────────┬─────────────────────────────────────────────┘   │
+                         │                                                 │
+                         ▼                                                 │
+        ┌──────────────────────────────────────────────────────┐           │
+        │              training/deploy.py                      │           │
+        │  - create versioned strategy artifacts              │           │
+        │  - write metadata                                   │           │
+        │  - update active version                            │           │
+        └──────────────┬───────────────────────────────────────┘           │
+                       │                                                   │
+                       ▼                                                   │
+  ┌──────────────────────────────────────────────────────────────────────┐  │
+  │                         training/versions/                          │  │
+  │  active.json   v1/strategy.json   v2/...   v3/...                  │  │
+  └───────────────────────┬─────────────────────────────────────────────┘  │
+                          │                                                │
+                          ▼                                                │
+        ┌──────────────────────────────────────────────────────┐           │
+        │            FastAPI + EngineService                   │◄──────────┘
+        │  - load GTO / population / active proprietary       │
+        │  - build spot_key                                   │
+        │  - lookup 3-layer strategy                          │
+        │  - expose reports / versions / diffs                │
+        └──────────────┬──────────────────────────────┬────────┘
+                       │                              │
+                       ▼                              ▼
+         ┌──────────────────────────┐     ┌──────────────────────────┐
+         │      Next.js Web UI      │     │          CLI             │
+         │  overview / analyze      │     │  lookup / stats / train  │
+         │  population / versions   │     │  version / analysis      │
+         └──────────────────────────┘     └──────────────────────────┘</pre>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="grid-3">
+        <article class="card reveal">
+          <div class="kicker">Parser layer</div>
+          <h3>Rust-based ingestion for high-volume hand histories</h3>
+          <p>
+            The parser processes raw text histories in parallel, emits normalized CSVs,
+            and produces a schema suitable for PostgreSQL ingestion. This gives the platform
+            a performant raw-data foundation before any strategy logic runs.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Training layer</div>
+          <h3>Population, deviation, proprietary strategy, validation</h3>
+          <p>
+            The training stack converts real-world behavior into structured population
+            tendencies, measures divergence from GTO, generates exploitative adjustments,
+            and validates the resulting strategy before deployment.
+          </p>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Serving layer</div>
+          <h3>Low-complexity delivery with version-aware lookups</h3>
+          <p>
+            FastAPI and `EngineService` load active artifacts into memory, making the
+            current strategy package instantly queryable by the product interface and the CLI.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell" id="pipeline">
+      <div class="section-head">
+        <h2 class="reveal">Strategy generation lifecycle</h2>
+        <p class="reveal">
+          The training path is deliberately structured as a repeatable release pipeline.
+          Each stage transforms the representation of the strategy system: from raw hands,
+          to structured frequencies, to exploitable opportunity, to proprietary policy,
+          to versioned deployment.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card reveal">
+          <div class="timeline">
+            <div class="timeline-step">
+              <span class="step-no">01</span>
+              <div>
+                <strong>Load or build the GTO baseline</strong>
+                <p>
+                  The system starts from `solver/gto_baseline.json`, with the solver layer
+                  available to generate or enrich that baseline using PioSOLVER or curated
+                  reference data.
+                </p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <span class="step-no">02</span>
+              <div>
+                <strong>Compute population tendencies</strong>
+                <p>
+                  Parsed hand histories are aggregated into `spot_key -> action frequencies`
+                  with sample sizes and confidence measures, producing the platform’s view of
+                  observed field behavior.
+                </p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <span class="step-no">03</span>
+              <div>
+                <strong>Measure deviations from baseline</strong>
+                <p>
+                  GTO and population distributions are compared spot by spot, with statistical
+                  significance and EV opportunity estimates used to identify the highest-value
+                  exploit windows.
+                </p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <span class="step-no">04</span>
+              <div>
+                <strong>Generate proprietary exploit strategy</strong>
+                <p>
+                  Significant deviations are converted into proprietary action-frequency shifts
+                  through bounded, normalized exploit rules governed by confidence and aggression
+                  parameters.
+                </p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <span class="step-no">05</span>
+              <div>
+                <strong>Validate through Monte Carlo simulation</strong>
+                <p>
+                  Proprietary and GTO policies are compared against population tendencies to
+                  estimate aggregate EV gain, holdout concordance, and degenerate strategy risk.
+                </p>
+              </div>
+            </div>
+            <div class="timeline-step">
+              <span class="step-no">06</span>
+              <div>
+                <strong>Deploy as a versioned release</strong>
+                <p>
+                  Each strategy package is written as `vN/strategy.json` plus metadata, diffs,
+                  and an active pointer, creating a release history that the product can browse
+                  and compare.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card reveal">
+          <div class="kicker">Pipeline output</div>
+          <h3>From training run to product-ready release</h3>
+          <pre class="diagram">solver/gto_baseline.json
+          │
+          ▼
+training/population.py
+          │
+          ▼
+training/population_data.json
+          │
+          ▼
+training/deviation.py
+          │
+          ▼
+training/adjustment.py
+          │
+          ▼
+training/validation.py
+          │
+          ▼
+training/deploy.py
+          │
+          ▼
+training/versions/vN/*</pre>
+          <p>
+            This release-centered structure makes the platform suitable for repeated strategy
+            iterations, auditability, and side-by-side package comparison rather than ad hoc output.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="runtime">
+      <div class="section-head">
+        <h2 class="reveal">Runtime serving model</h2>
+        <p class="reveal">
+          The online product path is intentionally lightweight. The platform serves strategy
+          artifacts from disk-backed version outputs rather than running solver computation on demand.
+          That keeps response behavior simple, deterministic, and operationally efficient.
+        </p>
+      </div>
+
+      <div class="grid-2">
+        <article class="card reveal">
+          <div class="kicker">Lookup flow</div>
+          <pre class="diagram">User input
+   │
+   ▼
+Web UI / CLI
+   │
+   ▼
+FastAPI endpoint
+   │
+   ▼
+EngineService.lookup_strategy()
+   │
+   ├── build spot_key
+   ├── load GTO spot
+   ├── load population spot
+   ├── load active proprietary spot
+   └── generate reasoning
+   ▼
+StrategyResponse</pre>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Unified index</div>
+          <h3>`spot_key` is the cross-system contract</h3>
+          <p>
+            Every major layer speaks the same lookup language:
+          </p>
+          <pre class="diagram">GameState
+  ├── position
+  ├── villain_position
+  ├── stack_bb
+  ├── board
+  └── actions
+        │
+        ▼
+build_spot_key(...)
+        │
+        ▼
+nlhe_cash:{positions}:{stack}:{texture}:{actions}</pre>
+          <p>
+            That single index powers GTO lookups, population lookups, proprietary strategy
+            retrieval, deviation ranking, and version diffs without changing conceptual models.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell" id="platform">
+      <div class="section-head">
+        <h2 class="reveal">Platform stack</h2>
+        <p class="reveal">
+          The repo is not a single application; it is a layered platform composed of ingestion,
+          training, serving, and product surfaces. Some layers are already in the critical path,
+          while others are scaffolded for the next phase of scale.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card reveal">
+          <div class="kicker">Core stack</div>
+          <ul class="stack-list">
+            <li><strong>Rust</strong><span>Hand-history parsing, batch processing, CSV generation, schema emission</span></li>
+            <li><strong>Python</strong><span>Training pipeline, FastAPI service layer, strategy orchestration, CLI</span></li>
+            <li><strong>Next.js</strong><span>Product interface for strategy exploration, analysis, population review, and release visibility</span></li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Primary runtime source</div>
+          <ul class="stack-list">
+            <li><strong>Artifacts</strong><span>Versioned JSON strategy packages are the live serving substrate today</span></li>
+            <li><strong>EngineService</strong><span>Loads active package into memory and exposes consistent lookup and reporting methods</span></li>
+            <li><strong>Pydantic</strong><span>Defines stable contracts between service, tests, CLI, and frontend</span></li>
+          </ul>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Scale foundation</div>
+          <ul class="stack-list">
+            <li><strong>PioSOLVER</strong><span>Integrated at the solver layer for deeper baseline generation when available</span></li>
+            <li><strong>Postgres</strong><span>Provisioned in infrastructure and aligned with parser outputs for formalized data persistence</span></li>
+            <li><strong>Redis</strong><span>Provisioned for cache and future workload distribution when serving moves beyond artifact-only paths</span></li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section shell">
+      <div class="band reveal">
+        <div class="band-grid">
+          <div>
+            <div class="panel-label">Current architecture posture</div>
+            <h2>Research-grade depth with product-grade delivery surfaces.</h2>
+            <p>
+              The platform already unifies data ingestion, strategy construction, release
+              management, and user-facing interfaces. In its current form, it favors low-complexity,
+              high-clarity serving through artifacts, while keeping the system open for deeper
+              persistence, caching, and solver-backed expansion.
+            </p>
+          </div>
+          <div>
+            <ul>
+              <li>Artifact-backed serving keeps online complexity low while preserving release discipline.</li>
+              <li>Versioned strategy packages create a concrete history of coverage, gain, and change.</li>
+              <li>Rust, Python, and web layers are already partitioned by role rather than blended into a monolith.</li>
+              <li>Database, cache, and richer runtime execution paths are prepared as scaling layers rather than speculative placeholders.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section shell" id="appendix">
+      <div class="section-head">
+        <h2 class="reveal">Appendix</h2>
+        <p class="reveal">
+          Supporting technical source notes are available directly alongside this page.
+        </p>
+      </div>
+      <div class="grid-2">
+        <article class="card reveal">
+          <div class="kicker">Primary references</div>
+          <h3>Source documents</h3>
+          <p>
+            The following materials informed this brief and remain available as companion documents.
+          </p>
+          <div class="appendix-links">
+            <a href="./technical_walkthrough.md">Technical walkthrough</a>
+            <a href="./architecture_diagram.md">Architecture diagrams</a>
+          </div>
+        </article>
+        <article class="card reveal">
+          <div class="kicker">Audience</div>
+          <h3>External-ready technical narrative</h3>
+          <p>
+            This page is written as a direct platform brief for partners, investors, and senior
+            stakeholders evaluating system design, productization discipline, and technical depth.
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer shell">
+    <div class="footer-card">
+      Holdem Exploration architecture brief. Static delivery page generated from the platform’s
+      technical system documentation and architecture diagrams.
+    </div>
+  </footer>
+
+  <script>
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+          }
+        });
+      },
+      { threshold: 0.12 }
+    );
+
+    document.querySelectorAll(".reveal").forEach((element) => observer.observe(element));
+  </script>
+</body>
+</html>
